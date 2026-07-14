@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SapaX Base64 Converter</title>
+<style>
+body{margin:0;font-family:Arial,sans-serif;background:#111827;color:#e5e7eb}
+header{padding:20px;background:#0f172a;border-bottom:1px solid #334155}
+.container{max-width:1100px;margin:auto;padding:20px}
+.drop{border:2px dashed #475569;padding:40px;text-align:center;border-radius:10px;cursor:pointer}
+.drop.drag{border-color:#22c55e;background:#132d20}
+input[type=file]{display:none}
+.row{display:flex;gap:12px;flex-wrap:wrap;margin:16px 0}
+select,button{padding:10px;border-radius:6px;border:1px solid #475569;background:#1e293b;color:white}
+button{cursor:pointer}
+.preview{display:flex;gap:20px;align-items:flex-start;flex-wrap:wrap;margin-top:20px}
+img{max-width:220px;border-radius:8px;border:1px solid #475569}
+textarea{width:100%;height:260px;background:#020617;color:#22c55e;border:1px solid #334155;padding:10px;border-radius:8px;font-family:monospace}
+table{width:100%;border-collapse:collapse;margin-top:20px}
+td,th{border:1px solid #334155;padding:8px}
+</style>
+</head>
+<body>
+<header><h2>SapaX Base64 Converter</h2></header>
+<div class="container">
+<label class="drop" id="drop">
+<input id="file" type="file" multiple accept="image/*">
+<h3>Drop files here or click to browse</h3>
+<p>Runs completely in your browser</p>
+</label>
+
+<div class="row">
+<select id="format">
+<option value="base64">Base64 Only</option>
+<option value="uri">Data URI</option>
+<option value="img">HTML IMG</option>
+<option value="css">CSS Background</option>
+<option value="json">JSON</option>
+<option value="js">JavaScript</option>
+<option value="ts">TypeScript</option>
+<option value="py">Python</option>
+<option value="cs">C#</option>
+<option value="java">Java</option>
+<option value="php">PHP</option>
+<option value="xml">XML</option>
+</select>
+
+<select id="mime">
+<option>image/png</option>
+<option>image/jpeg</option>
+<option>image/webp</option>
+<option>image/gif</option>
+<option>image/svg+xml</option>
+</select>
+
+<button id="copy">Copy</button>
+<button id="download">Download TXT</button>
+</div>
+
+<table>
+<tr><th>Name</th><th>Dimensions</th><th>Original</th><th>Encoded</th><th>Overhead</th></tr>
+<tbody id="stats"></tbody>
+</table>
+
+<div class="preview">
+<img id="preview">
+</div>
+
+<textarea id="out"></textarea>
+</div>
+
+<script>
+const file=document.getElementById("file");
+const drop=document.getElementById("drop");
+const out=document.getElementById("out");
+const stats=document.getElementById("stats");
+const preview=document.getElementById("preview");
+const format=document.getElementById("format");
+const mime=document.getElementById("mime");
+let current=null;
+
+drop.onclick=()=>file.click();
+["dragenter","dragover"].forEach(e=>drop.addEventListener(e,x=>{x.preventDefault();drop.classList.add("drag");}));
+["dragleave","drop"].forEach(e=>drop.addEventListener(e,x=>{x.preventDefault();drop.classList.remove("drag");}));
+drop.addEventListener("drop",e=>load([...e.dataTransfer.files]));
+file.onchange=e=>load([...e.target.files]);
+format.onchange=render;
+mime.onchange=render;
+
+function load(files){
+ if(!files.length)return;
+ const f=files[0];
+ const r=new FileReader();
+ r.onload=e=>{
+   current={name:f.name,size:f.size,data:e.target.result};
+   const img=new Image();
+   img.onload=()=>{
+      current.w=img.width;current.h=img.height;
+      preview.src=current.data;
+      render();
+   };
+   img.src=current.data;
+ };
+ r.readAsDataURL(f);
+}
+
+function render(){
+ if(!current)return;
+ const m=mime.value;
+ const uri=current.data.replace(/^data:[^;]+;/,"data:"+m+";");
+ const b64=uri.split(",")[1];
+ let txt="";
+ switch(format.value){
+   case "base64": txt=b64; break;
+   case "uri": txt=uri; break;
+   case "img": txt=`<img src='${uri}' alt='' style=width:100%;/>`; break;
+   case "css": txt=`background-image:url("${uri}");`; break;
+   case "json": txt=JSON.stringify({image:uri},null,2); break;
+   case "js": txt=`const image="${uri}";`; break;
+   case "ts": txt=`const image:string="${uri}";`; break;
+   case "py": txt=`image="${uri}"`; break;
+   case "cs": txt=`string image="${uri}";`; break;
+   case "java": txt=`String image="${uri}";`; break;
+   case "php": txt=`$image="${uri}";`; break;
+   case "xml": txt=`<image>${uri}</image>`; break;
+ }
+ out.value=txt;
+ const enc=uri.length;
+ const over=((enc-current.size)/current.size*100).toFixed(1);
+ stats.innerHTML=`<tr><td>${current.name}</td><td>${current.w}×${current.h}</td><td>${current.size} B</td><td>${enc} chars</td><td>${over}%</td></tr>`;
+}
+
+copy.onclick=()=>navigator.clipboard.writeText(out.value);
+download.onclick=()=>{
+ const a=document.createElement("a");
+ a.href=URL.createObjectURL(new Blob([out.value],{type:"text/plain"}));
+ a.download="base64.txt";
+ a.click();
+};
+</script>
+</body>
+</html>
